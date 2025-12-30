@@ -360,10 +360,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Define Avatar Paths
-# Using the ABSOLUTE paths from the generation tool
-AI_AVATAR_PATH = "/Users/nathanielislas/.gemini/antigravity/brain/fbe0f66c-cd06-46e2-aff6-cc29ce0c8479/ai_avatar_icon_1767120510418.png"
-USER_AVATAR_PATH = "/Users/nathanielislas/.gemini/antigravity/brain/fbe0f66c-cd06-46e2-aff6-cc29ce0c8479/user_avatar_icon_1767120522427.png"
+# Define Avatar Paths (optional - will use Streamlit defaults if not found)
+# Check if avatar files exist, otherwise use None for default avatars
+_ai_avatar = "/Users/nathanielislas/.gemini/antigravity/brain/fbe0f66c-cd06-46e2-aff6-cc29ce0c8479/ai_avatar_icon_1767120510418.png"
+_user_avatar = "/Users/nathanielislas/.gemini/antigravity/brain/fbe0f66c-cd06-46e2-aff6-cc29ce0c8479/user_avatar_icon_1767120522427.png"
+AI_AVATAR_PATH = _ai_avatar if Path(_ai_avatar).exists() else None
+USER_AVATAR_PATH = _user_avatar if Path(_user_avatar).exists() else None
 
 @st.cache_resource
 def get_workflow():
