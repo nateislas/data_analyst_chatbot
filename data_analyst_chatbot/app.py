@@ -12,6 +12,7 @@ import queue
 import json
 import time
 from pathlib import Path
+import tempfile
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from dotenv import load_dotenv
@@ -388,67 +389,48 @@ async def generate_dataset_description_async(file_path: str) -> Tuple[Dict[str, 
     description = await generate_dataset_description(metadata, workflow.llm)
     return metadata, description
 
-def save_session():
-    """Save the current session state to disk."""
-    if "session_folder" not in st.session_state or not st.session_state.session_folder:
-        return
+def handle_new_upload(uploaded_file):
+    """Common logic for handling a new CSV upload in a stateless manner."""
+    file_bytes = uploaded_file.getvalue()
+    file_hash = hashlib.md5(file_bytes).hexdigest()
     
-    session_folder = Path(st.session_state.session_folder)
-    session_folder.mkdir(exist_ok=True)
+    # Generate a unique temp directory for this specific upload
+    temp_session_dir = Path(tempfile.mkdtemp(prefix="data_analyst_"))
+    file_path = temp_session_dir / uploaded_file.name
     
-    # Data to persist
-    state_to_save = {
-        "file_path": st.session_state.get("file_path"),
-        "last_file_hash": st.session_state.get("last_file_hash"),
-        "messages": st.session_state.get("messages", []),
-        "dataset_metadata": st.session_state.get("dataset_metadata"),
-        "dataset_description": st.session_state.get("dataset_description"),
-        "last_result": st.session_state.get("last_result"),
-        "timestamp": datetime.now().isoformat(),
-        "display_name": Path(st.session_state.get("file_path")).name if st.session_state.get("file_path") else "Unknown"
-    }
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
     
-    with open(session_folder / "session_state.json", "w") as f:
-        json.dump(state_to_save, f, indent=2, default=str)
-
-def list_sessions():
-    """List all available saved sessions."""
-    sessions_dir = Path("sessions")
-    if not sessions_dir.exists():
-        return []
+    # Update Session State
+    st.session_state.messages = []
+    st.session_state.last_result = None
+    st.session_state.file_path = str(file_path)
+    st.session_state.last_file_hash = file_hash
+    st.session_state.session_folder = str(temp_session_dir)
     
-    sessions = []
-    for s_dir in sessions_dir.iterdir():
-        if s_dir.is_dir():
-            state_file = s_dir / "session_state.json"
-            if state_file.exists():
-                try:
-                    with open(state_file, "r") as f:
-                        data = json.load(f)
-                        data["id"] = s_dir.name
-                        sessions.append(data)
-                except:
-                    continue
+    # Profiling
+    if "dataset_cache" not in st.session_state:
+        st.session_state.dataset_cache = {}
+        
+    _runner.start()
+    with st.spinner("Profiling dataset..."):
+        # We need to run the async function in a way that works for Streamlit
+        # Re-using the logic from the old main
+        future = asyncio.run_coroutine_threadsafe(
+            generate_dataset_description_async(str(file_path)),
+            _runner._loop
+        )
+        metadata, description = future.result(timeout=60)
+        
+        cached_data = {
+            "metadata": metadata,
+            "description": description,
+            "response": "Ready for analysis."
+        }
+        st.session_state.dataset_metadata = metadata
+        st.session_state.dataset_description = description
+        st.session_state.last_result = cached_data
     
-    # Sort by timestamp, newest first
-    return sorted(sessions, key=lambda x: x.get("timestamp", ""), reverse=True)
-
-def load_session(session_id: str):
-    """Load a specific session into st.session_state."""
-    session_path = Path("sessions") / session_id / "session_state.json"
-    if not session_path.exists():
-        return
-    
-    with open(session_path, "r") as f:
-        data = json.load(f)
-    
-    st.session_state.messages = data.get("messages", [])
-    st.session_state.file_path = data.get("file_path")
-    st.session_state.last_file_hash = data.get("last_file_hash")
-    st.session_state.dataset_metadata = data.get("dataset_metadata")
-    st.session_state.dataset_description = data.get("dataset_description")
-    st.session_state.last_result = data.get("last_result")
-    st.session_state.session_folder = str(Path("sessions") / session_id)
     st.rerun()
 
 def render_plot_gallery(plot_paths: List[str]):
@@ -617,23 +599,6 @@ def main():
                     del st.session_state[key]
             st.rerun()
 
-        sessions = list_sessions()
-        if sessions:
-            for s in sessions[:5]: # Show last 5
-                # Simple name: truncate if too long
-                display_name = s['display_name']
-                if len(display_name) > 20:
-                    display_name = display_name[:17] + "..."
-                
-                # Highlight active session
-                session_full_id = str(Path("sessions") / s["id"])
-                is_active = st.session_state.get("session_folder") == session_full_id
-                
-                if st.button(display_name, key=f"session_{s['id']}", width="stretch", type="primary" if is_active else "secondary"):
-                    load_session(s["id"])
-        else:
-            st.markdown('<div style="font-size: 0.75rem; color: #94a3b8; padding-left: 0.75rem;">No recent history</div>', unsafe_allow_html=True)
-
         # Restore Source Info to Sidebar when a file is active
         if "file_path" in st.session_state:
             st.markdown('<div class="sidebar-section-header">Source</div>', unsafe_allow_html=True)
@@ -669,30 +634,7 @@ def main():
             with st.popover("＋", help="Upload a new dataset"):
                 new_file = st.file_uploader("Upload CSV", type="csv", key="chat_uploader")
                 if new_file:
-                    # Trigger the same logic (this should be abstracted, but for now duplicate)
-                    file_bytes = new_file.getvalue()
-                    file_hash = hashlib.md5(file_bytes).hexdigest()
-                    temp_dir = Path("temp_data")
-                    temp_dir.mkdir(exist_ok=True)
-                    f_path = temp_dir / new_file.name
-                    
-                    with open(f_path, "wb") as f:
-                        f.write(file_bytes)
-                    
-                    st.session_state.messages = []
-                    st.session_state.last_result = None
-                    st.session_state.file_path = str(f_path)
-                    st.session_state.last_file_hash = file_hash
-                    
-                    # New session folder
-                    sessions_dir = Path("sessions")
-                    sessions_dir.mkdir(exist_ok=True)
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    session_folder = sessions_dir / f"{new_file.name.replace(' ', '_')}_{timestamp}"
-                    session_folder.mkdir(exist_ok=True)
-                    st.session_state.session_folder = str(session_folder)
-                    
-                    st.rerun()
+                    handle_new_upload(new_file)
             
         with col_actions:
             if st.button("Reset Chat", width="stretch"):
@@ -702,7 +644,7 @@ def main():
 
         st.markdown("<div style='margin-bottom: 2rem;'></div>", unsafe_allow_html=True)
         
-        # Initial Dataset Context (if no chat history or just loaded)
+        # Initial Dataset Context
         if "last_result" in st.session_state and st.session_state.last_result is not None and not st.session_state.get("messages"):
              res = st.session_state.last_result
              with st.expander("Dataset Overview & Insights", expanded=False):
@@ -723,11 +665,9 @@ def main():
             with st.chat_message(message["role"], avatar=avatar_path):
                 st.markdown(message["content"])
                 
-                # Render plots using the new gallery system
                 if message["role"] == "assistant" and "plot_paths" in message and message["plot_paths"]:
                     render_plot_gallery(message["plot_paths"])
                 
-                # Steps
                 if message["role"] == "assistant" and "steps" in message and message["steps"]:
                     with st.expander("View Analysis Steps", expanded=False):
                         for step in message["steps"]:
@@ -740,7 +680,6 @@ def main():
                 st.markdown(prompt)
             
             with st.chat_message("assistant", avatar=AI_AVATAR_PATH):
-                # Placeholder for streaming/processing
                 placeholder = st.empty()
                 with placeholder.container():
                     st.markdown("<span style='color:#64748b; font-size: 0.9rem;'>Thinking...</span>", unsafe_allow_html=True)
@@ -750,7 +689,6 @@ def main():
                     events, result = run_analysis(prompt, st.session_state.file_path, chat_history)
                     
                     placeholder.empty()
-                    
                     response = result["response"]
                     st.markdown(response)
                     
@@ -764,10 +702,6 @@ def main():
                         "steps": [e for e in events if e],
                         "plot_paths": plot_paths
                     })
-                    
-                    # Auto-save after assistant response
-                    save_session()
-                    
                 except Exception as e:
                     placeholder.empty()
                     st.error(f"Analysis failed: {e}")
@@ -780,75 +714,12 @@ def main():
             </div>
         """, unsafe_allow_html=True)
         
-        # Center the uploader
         col_l, col_m, col_r = st.columns([1, 2, 1])
         with col_m:
             uploaded_file = st.file_uploader("Upload a CSV to start analyzing", type="csv")
             
             if uploaded_file:
-                # Use content hash to detect real changes and prevent redundant processing
-                file_bytes = uploaded_file.getvalue()
-                file_hash = hashlib.md5(file_bytes).hexdigest()
-                temp_dir = Path("temp_data")
-                temp_dir.mkdir(exist_ok=True)
-                file_path = temp_dir / uploaded_file.name
-                
-                # Detect if this is a actually a new file for this session
-                is_new_file = st.session_state.get("last_file_hash") != file_hash
-                
-                if is_new_file:
-                    # Only write to disk if it's new
-                    with open(file_path, "wb") as f:
-                        f.write(file_bytes)
-                    
-                    # Reset session state for new file
-                    st.session_state.messages = []
-                    st.session_state.last_result = None
-                    st.session_state.file_path = str(file_path)
-                    st.session_state.last_file_hash = file_hash
-                    
-                    # Generate a single session folder for this specific upload
-                    sessions_dir = Path("sessions")
-                    sessions_dir.mkdir(exist_ok=True)
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    safe_filename = uploaded_file.name.replace(" ", "_").replace("/", "_").replace("\\", "_")
-                    session_folder = sessions_dir / f"{safe_filename}_{timestamp}"
-                    session_folder.mkdir(exist_ok=True)
-                    st.session_state.session_folder = str(session_folder)
-                    
-                    # Trigger profiling ONLY on new upload
-                    if "dataset_cache" not in st.session_state:
-                        st.session_state.dataset_cache = {}
-                    
-                    cache_key = f"{file_path}_{file_hash}" # Use hash for stable cache key
-                    
-                    if cache_key in st.session_state.dataset_cache:
-                        cached = st.session_state.dataset_cache[cache_key]
-                        st.session_state.dataset_metadata = cached["metadata"]
-                        st.session_state.dataset_description = cached["description"]
-                        st.session_state.last_result = cached
-                    else:
-                        _runner.start()
-                        with st.spinner("Profiling dataset..."):
-                            future = asyncio.run_coroutine_threadsafe(
-                                generate_dataset_description_async(str(file_path)),
-                                _runner._loop
-                            )
-                            metadata, description = future.result(timeout=60)
-                            
-                            cached_data = {
-                                "metadata": metadata,
-                                "description": description,
-                                "response": "Ready for analysis."
-                            }
-                            st.session_state.dataset_cache[cache_key] = cached_data
-                            st.session_state.dataset_metadata = metadata
-                            st.session_state.dataset_description = description
-                            st.session_state.last_result = cached_data
-                    
-                    # Auto-save after profiling / loading
-                    save_session()
-                    st.rerun()
+                handle_new_upload(uploaded_file)
 
 if __name__ == "__main__":
     main()

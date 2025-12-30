@@ -543,46 +543,57 @@ class DataAnalystWorkflow(Workflow):
             plot_filename = f"plot_{uuid.uuid4().hex[:8]}.png"
             plot_path = plot_dir / plot_filename
             
+            # Security Scan: Block potentially malicious keywords
+            malicious_patterns = [
+                r'import\s+(os|subprocess|sys|socket|requests|urllib|shutil|glob|ctypes|pathlib)',
+                r'from\s+(os|subprocess|sys|socket|requests|urllib|shutil|glob|ctypes|pathlib)',
+                r'eval\(', r'exec\(', r'getattr\(', r'setattr\(', r'__import__', r'globals\(', r'locals\(',
+                r'open\(', r'read\(', r'write\(', r'\.to_csv', r'\.to_json', r'\.to_sql', r'\.to_excel',
+                r'os\.', r'subprocess\.', r'sys\.', r'socket\.', r'requests\.', r'builtins'
+            ]
+            
+            for pattern in malicious_patterns:
+                if re.search(pattern, code_str, re.IGNORECASE):
+                    error_msg = f"Security Violation: Potential malicious code detected (pattern: {pattern}). Execution blocked."
+                    self._log("Security Violation", {"query": query, "code": code_str, "pattern": pattern})
+                    return {"output": error_msg, "plot_paths": None}
+
             # Create a safe execution environment with plotting libraries
+            # Restricted builtins to prevent system access
+            safe_builtins = {
+                'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool, 'bytearray': bytearray, 
+                'bytes': bytes, 'chr': chr, 'complex': complex, 'dict': dict, 'divmod': divmod, 
+                'enumerate': enumerate, 'filter': filter, 'float': float, 'format': format, 
+                'frozenset': frozenset, 'hash': hash, 'hex': hex, 'id': id, 'int': int, 
+                'isinstance': isinstance, 'issubclass': issubclass, 'iter': iter, 'len': len, 
+                'list': list, 'map': map, 'max': max, 'min': min, 'next': next, 'oct': oct, 
+                'ord': ord, 'pow': pow, 'print': print, 'range': range, 'repr': repr, 
+                'reversed': reversed, 'round': round, 'set': set, 'slice': slice, 'sorted': sorted, 
+                'str': str, 'sum': sum, 'tuple': tuple, 'type': type, 'zip': zip,
+                'None': None, 'True': True, 'False': False, 'Exception': Exception
+            }
+
             local_vars = {
                 "df": df, 
                 "pd": pd,
                 "plt": plt,
+                "np": getattr(pd, 'np', None), # Add numpy if possible
                 "matplotlib": matplotlib,
-                "plot_path": str(plot_path)  # Provide plot_path variable to LLM
+                "plot_path": str(plot_path),
+                "output": None
             }
             
             # Try to import seaborn if available
-            seaborn_available = False
             try:
                 import seaborn as sns
                 local_vars["sns"] = sns
-                seaborn_available = True
             except ImportError:
                 pass
             
-            global_vars = {"__builtins__": __builtins__}
+            global_vars = {"__builtins__": safe_builtins}
             
-            # Execute the code - handle seaborn import errors gracefully
-            try:
-                exec(code_str, global_vars, local_vars)
-            except (ModuleNotFoundError, NameError) as import_error:
-                # If seaborn import failed in the code, try to fix it
-                if "seaborn" in str(import_error).lower() or "sns" in str(import_error).lower():
-                    # Replace seaborn imports and calls with matplotlib equivalents
-                    code_str_fixed = code_str.replace("import seaborn as sns", "# seaborn not available, using matplotlib")
-                    code_str_fixed = code_str_fixed.replace("sns.lineplot", "plt.plot")
-                    code_str_fixed = code_str_fixed.replace("sns.barplot", "plt.bar")
-                    code_str_fixed = code_str_fixed.replace("sns.scatterplot", "plt.scatter")
-                    code_str_fixed = code_str_fixed.replace("sns.histplot", "plt.hist")
-                    code_str_fixed = code_str_fixed.replace("sns.boxplot", "plt.boxplot")
-                    # Try executing the fixed code
-                    try:
-                        exec(code_str_fixed, global_vars, local_vars)
-                    except Exception as e2:
-                        raise import_error  # Re-raise original error if fix didn't work
-                else:
-                    raise  # Re-raise if it's not a seaborn error
+            # Execute the code
+            exec(code_str, global_vars, local_vars)
             
             # Check for generated plots - only in session folder
             plot_paths = []
