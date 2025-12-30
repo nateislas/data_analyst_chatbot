@@ -1,0 +1,10 @@
+llama-index-workflows
+llama-index-core
+llama-index-llms-google-genai>=0.8.0
+llama-index-embeddings-gemini>=0.2.0
+llama-index-experimental  # Required for Pandas analysis
+pandas
+python-dotenv
+pydantic
+streamlit
+nest-asyncio

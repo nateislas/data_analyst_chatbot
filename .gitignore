@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# LlamaIndex storage
+storage/
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =============================================================================
+# Logs - Exclude all log files
+# =============================================================================
+*.log
+logs/
+
+# =============================================================================
+# Data Files - Exclude all user data and generated content
+# =============================================================================
+
+# Data directories - contains user-uploaded and sample data
+data/
+temp_data/
+
+# User sessions - contains session state, plots, and user-specific data from chat sessions
+sessions/
+
+# Storage - contains vector stores and indexes
+storage/
+
+# PDFs - Exclude all PDF files
+*.pdf
+
+# Data file formats
+**/*.csv
+**/*.parquet
+**/*.xlsx
+**/*.xls
+
+# Session state files (user-generated from chat sessions)
+sessions/**/session_state.json
+
+# Generated plots in sessions (user-generated from chat sessions)
+sessions/**/*.png
+sessions/**/*.jpg
+sessions/**/*.jpeg
+
+# Explicitly allow docs/ folder (contains intentional screenshots/documentation)
+!docs/
+!docs/**/*
+
+# =============================================================================
+# Environment Variables (CRITICAL - NEVER COMMIT THESE)
+# =============================================================================
+.env
+.env.*
+!.env.example
+!.env.template
+*.env
+setup_api_keys.sh
+
