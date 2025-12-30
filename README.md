@@ -26,10 +26,10 @@ This agent operates through autonomous code generation and execution. It analyze
 
 ## Technical Architecture
 
-- **Orchestration**: LlamaIndex Workflows (Event-driven asynchronous execution).
-- **Intelligence**: Google Gemini 2.0 Flash (Reasoning and Code Generation).
-- **Frontend**: Streamlit (Reactive UI with custom CSS polishing).
-- **Data Engine**: Pandas and Matplotlib/Seaborn.
+- **Orchestration**: LlamaIndex Workflows (Event-driven asynchronous execution)
+- **Intelligence**: Google Gemini 2.0 Flash (Reasoning and Code Generation)
+- **Frontend**: Streamlit (Reactive UI with custom CSS polishing)
+- **Data Engine**: Pandas for data manipulation, Matplotlib/Seaborn for visualizations
 
 ## Project Structure
 
