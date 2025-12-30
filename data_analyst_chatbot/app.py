@@ -4,6 +4,7 @@ Interactive web interface for analyzing uploaded CSV data.
 """
 
 import os
+import sys
 import asyncio
 import pandas as pd
 import streamlit as st
@@ -15,15 +16,21 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables from project root
+# Add parent directory to Python path so we can import the package
+# __file__ is at: data_analyst_chatbot/data_analyst_chatbot/app.py
+# We need: data_analyst_chatbot/ (two levels up)
 project_root = Path(__file__).parent.parent.resolve()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# Load environment variables from project root
 env_path = project_root / ".env"
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 else:
     load_dotenv()
 
-from analyst_workflow import DataAnalystWorkflow, _runner
+from data_analyst_chatbot.workflow import DataAnalystWorkflow, _runner
 from workflows.events import Event
 import hashlib
 
@@ -365,7 +372,7 @@ def get_workflow():
 
 async def generate_dataset_description_async(file_path: str) -> Tuple[Dict[str, Any], str]:
     """Generate dataset metadata and description asynchronously."""
-    from load_data import get_csv_metadata, generate_dataset_description
+    from data_analyst_chatbot.utils.data_loader import get_csv_metadata, generate_dataset_description
     workflow = DataAnalystWorkflow(timeout=600)
     metadata = get_csv_metadata(file_path)
     description = await generate_dataset_description(metadata, workflow.llm)
@@ -453,7 +460,7 @@ def render_plot_gallery(plot_paths: List[str]):
     if len(valid_paths) == 1:
         # Single plot: Show in a compact card
         st.markdown('<div class="plot-card">', unsafe_allow_html=True)
-        st.image(valid_paths[0], use_container_width=True)
+        st.image(valid_paths[0], width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
     else:
         # Multiple plots: Wrap in a collapsible expander with tabs
@@ -463,7 +470,7 @@ def render_plot_gallery(plot_paths: List[str]):
             for i, tab in enumerate(tabs):
                 with tab:
                     st.markdown('<div class="plot-card" style="border: none;">', unsafe_allow_html=True)
-                    st.image(valid_paths[i], use_container_width=True)
+                    st.image(valid_paths[i], width="stretch")
                     st.markdown('</div>', unsafe_allow_html=True)
 
 async def create_and_run_workflow(query: str, file_path: str, event_queue: queue.Queue, cached_metadata: dict = None, cached_description: str = None, chat_history: List[Dict[str, str]] = None, log_file_path: str = None, session_folder: str = None):
@@ -593,7 +600,7 @@ def main():
         # Recent Sessions Section
         st.markdown('<div class="sidebar-section-header">History</div>', unsafe_allow_html=True)
         
-        if st.button("+ New Analysis", use_container_width=True):
+        if st.button("+ New Analysis", width="stretch"):
             # Reset everything to start fresh
             for key in ["messages", "file_path", "last_file_hash", "dataset_metadata", "dataset_description", "last_result", "session_folder"]:
                 if key in st.session_state:
@@ -612,7 +619,7 @@ def main():
                 session_full_id = str(Path("sessions") / s["id"])
                 is_active = st.session_state.get("session_folder") == session_full_id
                 
-                if st.button(display_name, key=f"session_{s['id']}", use_container_width=True, type="primary" if is_active else "secondary"):
+                if st.button(display_name, key=f"session_{s['id']}", width="stretch", type="primary" if is_active else "secondary"):
                     load_session(s["id"])
         else:
             st.markdown('<div style="font-size: 0.75rem; color: #94a3b8; padding-left: 0.75rem;">No recent history</div>', unsafe_allow_html=True)
@@ -631,7 +638,7 @@ def main():
             """, unsafe_allow_html=True)
                 
             with st.expander("Preview Data", expanded=False):
-                st.dataframe(df_preview.head(), use_container_width=True)
+                st.dataframe(df_preview.head(), width="stretch")
 
     # Main Content
     if "file_path" in st.session_state:
@@ -678,7 +685,7 @@ def main():
                     st.rerun()
             
         with col_actions:
-            if st.button("Reset Chat", use_container_width=True):
+            if st.button("Reset Chat", width="stretch"):
                 st.session_state.messages = []
                 st.session_state.last_result = None
                 st.rerun()

@@ -2,12 +2,15 @@
 
 An advanced code-execution agent built with LlamaIndex and Streamlit, designed to transform raw datasets into actionable insights through natural language.
 
-Unlike traditional RAG systems, this agent operates through autonomous code generation and execution. It analyzes your data's structure, formulates an execution plan, writes Python code (Pandas/Matplotlib), and delivers precise results alongside interactive visualizations.
+This agent operates through autonomous code generation and execution. It analyzes your data's structure, formulates an execution plan, writes Python code (Pandas/Matplotlib), and delivers precise results alongside interactive visualizations.
 
 ## Visual Interface
 
 ### Analysis Workspace
 ![Analysis Workspace](docs/current_chat.png)
+
+### Visualization Gallery
+![Visualization Gallery](docs/chat_with_plots.png)
 
 ### New Analysis Entry
 ![New Analysis Entry](docs/new_chat.png)
@@ -27,6 +30,23 @@ Unlike traditional RAG systems, this agent operates through autonomous code gene
 - **Intelligence**: Google Gemini 2.0 Flash (Reasoning and Code Generation).
 - **Frontend**: Streamlit (Reactive UI with custom CSS polishing).
 - **Data Engine**: Pandas and Matplotlib/Seaborn.
+
+## Project Structure
+
+```
+data_analyst_chatbot/
+├── data_analyst_chatbot/          # Main package
+│   ├── __init__.py                # Package initialization
+│   ├── app.py                     # Streamlit frontend (entry point)
+│   ├── workflow.py                # Workflow implementation
+│   └── utils/                     # Utility modules
+│       ├── __init__.py
+│       └── data_loader.py        # Data loading utilities
+├── docs/                          # Documentation screenshots
+├── requirements.txt
+├── README.md
+└── run_app.sh                     # Launch script
+```
 
 ## QUICK_START
 
@@ -51,7 +71,12 @@ Unlike traditional RAG systems, this agent operates through autonomous code gene
 
 Launch the application using Streamlit:
 ```bash
-streamlit run app.py
+streamlit run data_analyst_chatbot/app.py
+```
+
+Alternatively, use the provided helper script:
+```bash
+bash run_app.sh
 ```
 
 Upload a CSV directly in the chat interface to begin your analysis.

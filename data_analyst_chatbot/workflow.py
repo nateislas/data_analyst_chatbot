@@ -4,6 +4,7 @@ Combines the LlamaIndex Planning Workflow pattern with Pandas Code Execution.
 """
 
 import os
+import sys
 import pandas as pd
 import asyncio
 import threading
@@ -14,7 +15,15 @@ from llama_index.core import Settings, PromptTemplate
 from llama_index.llms.google_genai import GoogleGenAI
 from workflows import Workflow, Context, step
 from workflows.events import Event, StartEvent, StopEvent
-from load_data import get_csv_metadata, generate_dataset_description
+
+# Add parent directory to Python path so we can import the package
+# __file__ is at: data_analyst_chatbot/data_analyst_chatbot/workflow.py
+# We need: data_analyst_chatbot/ (two levels up)
+project_root = Path(__file__).parent.parent.resolve()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from data_analyst_chatbot.utils.data_loader import get_csv_metadata, generate_dataset_description
 import ast
 import re
 import matplotlib
@@ -460,7 +469,8 @@ class DataAnalystWorkflow(Workflow):
                 "7. DO NOT hardcode 'plot.png' or any other path. Always use the 'plot_path' variable provided.\n"
                 "8. After saving, close the figure with plt.close().\n"
                 "9. Assign a descriptive message to 'output' explaining what was plotted (e.g., 'Created a bar chart showing...').\n"
-                "10. You can use matplotlib.pyplot (imported as plt). If seaborn is available, it will be imported as 'sns', but if it's not available, use matplotlib only.\n"
+                "10. You can use matplotlib.pyplot (imported as plt). If seaborn is available, it will be imported as 'sns'.\n"
+                "11. SEABORN WARNING: If you use a 'palette' in seaborn (e.g., sns.barplot, sns.boxplot), you MUST also assign the 'hue' variable to the same column as 'x' (or 'y') and set 'legend=False' to avoid deprecation warnings.\n"
             )
         else:
             instruction_str += (

@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 from typing import Dict, Any
 
 # Load environment variables from project root
-project_root = Path(__file__).parent.parent.resolve()
+# __file__ is at: data_analyst_chatbot/data_analyst_chatbot/utils/data_loader.py
+# We need: data_analyst_chatbot/ (three levels up)
+project_root = Path(__file__).parent.parent.parent.resolve()
 env_path = project_root / ".env"
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
@@ -70,3 +72,4 @@ async def generate_dataset_description(metadata: Dict[str, Any], llm) -> str:
     
     response = await llm.acomplete(prompt)
     return str(response)
+
