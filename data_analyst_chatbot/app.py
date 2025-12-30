@@ -24,11 +24,19 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 # Load environment variables from project root
+# Also check Streamlit secrets (for Streamlit Cloud deployment)
 env_path = project_root / ".env"
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 else:
     load_dotenv()
+
+# Streamlit Cloud uses st.secrets - make it available as environment variable
+try:
+    if hasattr(st, 'secrets') and 'GOOGLE_API_KEY' in st.secrets:
+        os.environ['GOOGLE_API_KEY'] = st.secrets['GOOGLE_API_KEY']
+except:
+    pass  # Not in Streamlit context or secrets not available
 
 from data_analyst_chatbot.workflow import DataAnalystWorkflow, _runner
 from workflows.events import Event
